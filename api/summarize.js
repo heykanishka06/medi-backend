@@ -78,7 +78,7 @@ AI-generated summary. Review by practitioner before clinical use.
 `;
 
         const response = await client.responses.create({
-            model: "gpt-5.6-luna",
+            model: "gpt-5.4-mini",
             input: prompt
         });
 
