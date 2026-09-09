@@ -1,12 +1,15 @@
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
-const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY
 });
 
 export default async function handler(req, res) {
 
-    // Allow GitHub Pages to call this backend
+    // =====================================================
+    // CORS
+    // =====================================================
+
     res.setHeader(
         "Access-Control-Allow-Origin",
         "https://heykanishka06.github.io"
@@ -22,11 +25,12 @@ export default async function handler(req, res) {
         "Content-Type"
     );
 
-    // Handle browser preflight request
+    // Browser preflight request
     if (req.method === "OPTIONS") {
         return res.status(200).end();
     }
 
+    // Only POST is allowed
     if (req.method !== "POST") {
         return res.status(405).json({
             error: "Method not allowed"
@@ -34,6 +38,10 @@ export default async function handler(req, res) {
     }
 
     try {
+
+        // =====================================================
+        // GET PATIENT INFORMATION
+        // =====================================================
 
         const { patient } = req.body;
 
@@ -43,20 +51,29 @@ export default async function handler(req, res) {
             });
         }
 
+        // =====================================================
+        // AI PROMPT
+        // =====================================================
+
         const prompt = `
-You are an AI assistant helping a practitioner organize a patient case.
+You are an AI assistant helping a healthcare practitioner organize a patient case.
 
-Create a clear and professional CASE SUMMARY from the information provided.
+Create a clear, professional and easy-to-read CASE SUMMARY from the patient information provided below.
 
-IMPORTANT:
+IMPORTANT SAFETY RULES:
+
 - Do NOT diagnose the patient.
 - Do NOT prescribe medicines.
-- Do NOT claim certainty about any disease.
-- Only summarize the information provided.
-- Clearly separate reported symptoms from other information.
-- Highlight important patterns that may deserve practitioner attention.
+- Do NOT recommend a treatment.
+- Do NOT claim certainty about any disease or medical condition.
+- Do NOT invent information that is not provided.
+- Only summarize the information given.
+- Clearly distinguish reported symptoms from other information.
+- Highlight important patterns or observations that may deserve practitioner attention.
+- Use professional but simple language.
+- If information is missing, do not guess.
 
-Use this structure:
+Use exactly this structure:
 
 CASE OVERVIEW
 
@@ -72,26 +89,37 @@ Patient information:
 
 ${JSON.stringify(patient, null, 2)}
 
-End with:
+At the end write:
 
 AI-generated summary. Review by practitioner before clinical use.
 `;
 
-        const response = await client.responses.create({
-            model: "gpt-5.4-mini",
-            input: prompt
+        // =====================================================
+        // GEMINI AI
+        // =====================================================
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt
         });
 
+        const summary = response.text;
+
+        // =====================================================
+        // SEND RESPONSE TO FRONTEND
+        // =====================================================
+
         return res.status(200).json({
-            summary: response.output_text
+            summary: summary
         });
 
     } catch (error) {
 
-        console.error("AI Summary Error:", error);
+        console.error("Gemini AI Summary Error:", error);
 
         return res.status(500).json({
-            error: "Unable to generate AI summary."
+            error: "Unable to generate AI summary.",
+            details: error.message
         });
     }
 }
